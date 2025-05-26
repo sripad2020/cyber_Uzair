@@ -1,7 +1,7 @@
 import joblib
 from flask import Flask, request, render_template, jsonify, redirect, url_for
 import pandas as pd
-import requests
+import requests,math
 import whois
 import datetime
 import hashlib
@@ -606,21 +606,6 @@ def check_progress(scan_id):
         return jsonify({'status': 'completed', 'result': result})
     return jsonify({'status': 'running'})
 
-# Credential Protection Routes
-@app.route('/credentials', methods=['GET', 'POST'])
-def credentials():
-    results = {}
-    if request.method == 'POST':
-        if 'email-check' in request.form and request.form['email-check']:
-            email = request.form['email-check']
-            results['email_breach'] = check_email_breach(email)
-        if 'password-check' in request.form and request.form['password-check']:
-            password = request.form['password-check']
-            results['password_breach'] = check_password_breach(password)
-    return render_template('credentials.html', results=results)
-
-
-
 
 # Placeholder for scan_ports (used in generate_threat_report)
 def scan_ports(ip):
@@ -667,30 +652,30 @@ def get_geolocation(ip: str) -> dict:
     except requests.RequestException as e:
         return {'ip': ip, 'error': f"Geolocation request failed: {str(e)}"}
 
-@app.route('/advanced', methods=['GET', 'POST'])
-def advanced():
-    results = {}
-    if request.method == 'POST':
-        if 'vuln-assessment' in request.form and request.form['vuln-assessment']:
-            target = request.form['vuln-assessment']
-            scan_id = str(uuid.uuid4())
-            # Run async function in Flask        context
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                results['vuln_assessment'] = loop.run_until_complete(
-                    perform_vulnerability_assessment(target, scan_id)
-                )
-            finally:
-                loop.close()
-        elif 'geolocation-ip' in request.form and request.form['geolocation-ip']:
-            ip = request.form['geolocation-ip']
-            results['geolocation'] = get_geolocation(ip)
 
-    # Ensure results are JSON-serializable for Jinja2
-    results = make_json_serializable(results)
-    print("Results being passed to template:", results)
-    return render_template('advanced.html', results=results)
+@app.route('/advanced', methods=['GET', 'POST'])
+async def advanced():
+    result = {}
+    if request.method == 'POST':
+        target = request.form.get('vuln-assessment')
+        if target:
+            try:
+                scan_id = str(uuid.uuid4())
+                result = await perform_vulnerability_assessment(target, scan_id)
+            except Exception as e:
+                result = {
+                    'error': f'Vulnerability assessment failed: {str(e)}',
+                    'error_type': 'ExecutionError'
+                }
+        else:
+            result = {
+                'error': 'No target provided',
+                'error_type': 'InputError'
+            }
+
+    print("Result being passed to template:", result)
+    return render_template('advanced.html', result=result)
+
 
 def check_phishing_url(url):
     # Google Safe Browsing API
