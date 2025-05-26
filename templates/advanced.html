@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CyberMind | Advanced Threat Analysis</title>
+    <title>CyberMind | Advanced Vulnerability Assessment</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -254,8 +254,12 @@
             box-shadow: 0 10px 20px rgba(0, 255, 157, 0.2);
         }
 
-        .result-item.high h2 span, .result-item.medium h2 span, .result-item.low h2 span {
+        .result-item.critical h2 span, .result-item.high h2 span, .result-item.medium h2 span, .result-item.low h2 span {
             text-shadow: 0 0 10px currentColor;
+        }
+
+        .result-item.critical h2 span {
+            color: var(--purple);
         }
 
         .result-item.high h2 span {
@@ -460,509 +464,270 @@
         <div class="nav-icon" data-tooltip="Network Threats" onclick="window.location.href='/network'">
             <i class="fas fa-network-wired"></i>
         </div>
-        <div class="nav-icon" data-tooltip="Credentials" onclick="window.location.href='/credentials'">
-            <i class="fas fa-key"></i>
-        </div>
-        <div class="nav-icon" data-tooltip="Advanced Threats" onclick="window.location.href='/advanced'">
+        
+        <div class="nav-icon" data-tooltip="Vulnerability Assessment" onclick="window.location.href='/advanced'">
             <i class="fas fa-shield-alt"></i>
         </div>
     </div>
 
     <div class="container">
         <div class="form-container">
-            <h1 class="neon-text">ADVANCED THREAT ANALYSIS</h1>
+            <h1 class="neon-text">VULNERABILITY ASSESSMENT</h1>
             <form method="POST" action="/advanced">
                 <div class="form-group">
-                    <label for="vuln-assessment">Vulnerability Assessment (Target)</label>
-                    <input type="text" id="vuln-assessment" name="vuln-assessment" placeholder="Enter target (e.g., example.com, 192.168.1.1)">
+                    <label for="vuln-assessment">Target (Domain or IP)</label>
+                    <input type="text" id="vuln-assessment" name="vuln-assessment" placeholder="Enter target (e.g., example.com, 192.168.1.1)" required>
                 </div>
                 <div class="form-group">
                     <button type="submit">Run Assessment</button>
                 </div>
             </form>
-            <form method="POST" action="/advanced">
-                <div class="form-group">
-                    <label for="geolocation-ip">IP Geolocation (IP Address)</label>
-                    <input type="text" id="geolocation-ip" name="geolocation-ip" placeholder="Enter IP address (e.g., 8.8.8.8)">
-                </div>
-                <div class="form-group">
-                    <button type="submit">Get Geolocation</button>
-                </div>
-            </form>
         </div>
         <div class="results-container">
-            <h1 class="neon-text">ANALYSIS RESULTS</h1>
+            <h1 class="neon-text">ASSESSMENT RESULTS</h1>
             <div id="results">
-                {% if results %}
-                    {% for key, data in results.items() %}
-                        {% if data %}
-                            <div class="result-item {{ data.threat_level | lower if key == 'threat_intel' and data.threat_level is defined else '' }}">
-                                <h2>
-                                    {% if key == 'threat_intel' %}
-                                        Threat Intelligence Report: <span class="neon-text">{{ data.threat_level | default('Unknown') }}</span>
-                                    {% elif key == 'vuln_assessment' %}
-                                        Vulnerability Assessment
-                                    {% elif key == 'geolocation' %}
-                                        IP Geolocation Result
-                                    {% endif %}
-                                </h2>
-                                {% if data.error %}
-                                    <div class="error-message">
-                                        <h2 class="neon-text">ERROR</h2>
-                                        <p><strong>Message:</strong> {{ data.error }}</p>
-                                        {% if data.error_type %}
-                                            <p><strong>Type:</strong> {{ data.error_type }}</p>
-                                        {% endif %}
-                                        <p>Please check your input and try again.</p>
-                                    </div>
+                {% if result %}
+                    {% if result.error %}
+                        <div class="result-item">
+                            <h2 class="neon-text">ERROR</h2>
+                            <div class="error-message">
+                                <h2 class="neon-text">Error</h2>
+                                <p><strong>Message:</strong> {{ result.error }}</p>
+                                {% if result.error_type %}
+                                    <p><strong>Type:</strong> {{ result.error_type }}</p>
                                 {% endif %}
-                                <h3>Summary</h3>
+                                <p>Please check your input and try again.</p>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="result-item {% if result.vulnerabilities | selectattr('severity', 'equalto', 'critical') | list | length > 0 %}critical{% elif result.vulnerabilities | selectattr('severity', 'equalto', 'high') | list | length > 0 %}high{% elif result.vulnerabilities | selectattr('severity', 'equalto', 'medium') | list | length > 0 %}medium{% else %}low{% endif %}">
+                            <h2>Vulnerability Assessment: <span class="neon-text">
+                                {{ 'Critical' if result.vulnerabilities | selectattr('severity', 'equalto', 'critical') | list | length > 0 else 'High' if result.vulnerabilities | selectattr('severity', 'equalto', 'high') | list | length > 0 else 'Medium' if result.vulnerabilities | selectattr('severity', 'equalto', 'medium') | list | length > 0 else 'Low' }}
+                            </span></h2>
+                            <h3>Summary</h3>
+                            <table class="feature-table">
+                                <tr>
+                                    <th>Field</th>
+                                    <th>Value</th>
+                                </tr>
+                                <tr>
+                                    <td>Target</td>
+                                    <td>{{ result.target | default('N/A') }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Target IP</td>
+                                    <td>{{ result.target_ip | default('N/A') }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Open Ports</td>
+                                    <td>{{ result.open_ports | join(', ') if result.open_ports else 'None' }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Timestamp</td>
+                                    <td>{{ result.timestamp | default('N/A') }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Vulnerabilities Found</td>
+                                    <td>{{ (result.vulnerabilities | length + result.web_vulnerabilities | length) if (result.vulnerabilities or result.web_vulnerabilities) else '0' }}</td>
+                                </tr>
+                            </table>
+
+                            <!-- Services -->
+                            <details>
+                                <summary>Port and Service Details</summary>
+                                <table class="feature-table">
+                                    <tr>
+                                        <th>Port</th>
+                                        <th>Name</th>
+                                        <th>Product</th>
+                                        <th>Version</th>
+                                        <th>Banner</th>
+                                    </tr>
+                                    {% for port, service in result.services.items() %}
+                                        {% if not service.error %}
+                                            <tr>
+                                                <td>{{ port }}</td>
+                                                <td>{{ service.name | default('N/A') }}</td>
+                                                <td>{{ service.product | default('N/A') }}</td>
+                                                <td>{{ service.version | default('N/A') }}</td>
+                                                <td>{{ service.banner | default('N/A') }}</td>
+                                            </tr>
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="5">{{ service.error }}</td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not result.services %}
+                                        <tr>
+                                            <td colspan="5">No services detected</td>
+                                        </tr>
+                                    {% endif %}
+                                </table>
+                            </details>
+
+                            <!-- HTTP Headers -->
+                            <details>
+                                <summary>HTTP Headers</summary>
+                                <table class="feature-table">
+                                    <tr>
+                                        <th>Scheme</th>
+                                        <th>Header</th>
+                                        <th>Value</th>
+                                    </tr>
+                                    {% for scheme, headers in result.http_headers.items() %}
+                                        {% if headers and not headers.error %}
+                                            {% for header, value in headers.items() %}
+                                                <tr>
+                                                    <td>{{ scheme | upper }}</td>
+                                                    <td>{{ header }}</td>
+                                                    <td>{{ value }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td>{{ scheme | upper }}</td>
+                                                <td colspan="2">{{ headers.error | default('No headers available') }}</td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not result.http_headers %}
+                                        <tr>
+                                            <td colspan="3">No HTTP headers available</td>
+                                        </tr>
+                                    {% endif %}
+                                </table>
+                            </details>
+
+                            <!-- SSL/TLS Information -->
+                            <details>
+                                <summary>SSL/TLS Information</summary>
                                 <table class="feature-table">
                                     <tr>
                                         <th>Field</th>
                                         <th>Value</th>
                                     </tr>
-                                    {% if key == 'threat_intel' %}
+                                    {% if result.ssl_info and not result.ssl_info.error %}
                                         <tr>
-                                            <td>Indicator</td>
-                                            <td>{{ data.indicator | default('N/A') }}</td>
+                                            <td>Cipher</td>
+                                            <td>{{ result.ssl_info.cipher | default('N/A') }}</td>
                                         </tr>
                                         <tr>
-                                            <td>Indicator Type</td>
-                                            <td>{{ data.indicator_type | default('N/A') }}</td>
+                                            <td>Protocols</td>
+                                            <td>{{ result.ssl_info.protocols | join(', ') if result.ssl_info.protocols else 'N/A' }}</td>
                                         </tr>
                                         <tr>
-                                            <td>Threat Level</td>
-                                            <td>{{ data.threat_level | default('N/A') }}</td>
+                                            <td>Issuer</td>
+                                            <td>{{ result.ssl_info.certificate.issuer | default('N/A') }}</td>
                                         </tr>
                                         <tr>
-                                            <td>Last Updated</td>
-                                            <td>{{ data.last_updated | default('N/A') }}</td>
-                                        </tr>
-                                    {% elif key == 'vuln_assessment' %}
-                                        <tr>
-                                            <td>Target</td>
-                                            <td>{{ data.target | default('N/A') }}</td>
+                                            <td>Valid From</td>
+                                            <td>{{ result.ssl_info.certificate.valid_from | default('N/A') }}</td>
                                         </tr>
                                         <tr>
-                                            <td>Target IP</td>
-                                            <td>{{ data.target_ip | default('N/A') }}</td>
+                                            <td>Valid To</td>
+                                            <td>{{ result.ssl_info.certificate.valid_to | default('N/A') }}</td>
                                         </tr>
                                         <tr>
-                                            <td>Open Ports</td>
-                                            <td>{{ data.open_ports | join(', ') if data.open_ports else 'None' }}</td>
+                                            <td>Serial</td>
+                                            <td>{{ result.ssl_info.certificate.serial | default('N/A') }}</td>
                                         </tr>
+                                    {% else %}
                                         <tr>
-                                            <td>Timestamp</td>
-                                            <td>{{ data.timestamp | default('N/A') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Vulnerabilities Found</td>
-                                            <td>{{ data.vulnerabilities | length if data.vulnerabilities else '0' }}</td>
-                                        </tr>
-                                    {% elif key == 'geolocation' %}
-                                        <tr>
-                                            <td>IP Address</td>
-                                            <td>{{ data.ip | default('N/A') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>City</td>
-                                            <td>{{ data.city | default('N/A') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Country</td>
-                                            <td>{{ data.country | default('N/A') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Region</td>
-                                            <td>{{ data.region | default('N/A') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Coordinates</td>
-                                            <td>{{ data.latitude | default('N/A') }}, {{ data.longitude | default('N/A') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>ISP</td>
-                                            <td>{{ data.isp | default('N/A') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Organization</td>
-                                            <td>{{ data.org | default('N/A') }}</td>
+                                            <td colspan="2">{{ result.ssl_info.error | default('No SSL info available') }}</td>
                                         </tr>
                                     {% endif %}
                                 </table>
-                                {% if key == 'threat_intel' and not data.error %}
-                                    {% if data.shodan_data and not data.shodan_data.error %}
-                                        <details>
-                                            <summary>Shodan Details</summary>
-                                            <table class="feature-table">
-                                                <tr>
-                                                    <th>Field</th>
-                                                    <th>Value</th>
-                                                </tr>
-                                                <tr>
-                                                    <td>Matches</td>
-                                                    <td>{{ data.shodan_data.matches | default('0') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Ports</td>
-                                                    <td>{{ data.shodan_data.ports | join(', ') if data.shodan_data.ports else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Services</td>
-                                                    <td>{{ data.shodan_data.services | join(', ') if data.shodan_data.services else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Operating Systems</td>
-                                                    <td>{{ data.shodan_data.os | join(', ') if data.shodan_data.os else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Vulnerabilities</td>
-                                                    <td>{{ data.shodan_data.vulnerabilities | join(', ') if data.shodan_data.vulnerabilities else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Organizations</td>
-                                                    <td>{{ data.shodan_data.organizations | join(', ') if data.shodan_data.organizations else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Geolocations</td>
-                                                    <td>{{ data.shodan_data.geolocations | join(', ') if data.shodan_data.geolocations else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>ASN</td>
-                                                    <td>{{ data.shodan_data.asn | join(', ') if data.shodan_data.asn else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>ISP</td>
-                                                    <td>{{ data.shodan_data.isp | join(', ') if data.shodan_data.isp else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Domains</td>
-                                                    <td>{{ data.shodan_data.domains | join(', ') if data.shodan_data.domains else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Last Seen</td>
-                                                    <td>{{ data.shodan_data.last_seen | default('N/A') }}</td>
-                                                </tr>
-                                            </table>
-                                            {% if data.shodan_data.protocol_specific %}
-                                                <details>
-                                                    <summary>Protocol-Specific Data</summary>
-                                                    <table class="feature-table">
-                                                        <tr>
-                                                            <th>Protocol</th>
-                                                            <th>Matches</th>
-                                                            <th>Ports</th>
-                                                            <th>Versions</th>
-                                                        </tr>
-                                                        {% for protocol, info in data.shodan_data.protocol_specific.items() %}
-                                                            <tr>
-                                                                <td>{{ protocol | upper }}</td>
-                                                                <td>{{ info.matches }}</td>
-                                                                <td>{{ info.ports | join(', ') if info.ports else 'None' }}</td>
-                                                                <td>{{ info.versions | join(', ') if info.versions else 'None' }}</td>
-                                                            </tr>
-                                                        {% endfor %}
-                                                    </table>
-                                                </details>
-                                            {% endif %}
-                                        </details>
+                            </details>
+
+                            <!-- Nmap Vulnerability Info -->
+                            <details>
+                                <summary>Nmap Vulnerability Info</summary>
+                                <table class="feature-table">
+                                    <tr>
+                                        <th>Port</th>
+                                        <th>Script</th>
+                                        <th>Service</th>
+                                        <th>Output</th>
+                                    </tr>
+                                    {% for vuln in result.nmap_vuln_info %}
+                                        <tr>
+                                            <td>{{ vuln.port }}</td>
+                                            <td>{{ vuln.script }}</td>
+                                            <td>{{ vuln.service | default('N/A') }}</td>
+                                            <td>{{ vuln.output | default('N/A') }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                    {% if not result.nmap_vuln_info %}
+                                        <tr>
+                                            <td colspan="4">No vulnerabilities detected</td>
+                                        </tr>
                                     {% endif %}
-                                    {% if data.virustotal_data and not data.virustotal_data.error %}
-                                        <details>
-                                            <summary>VirusTotal Details</summary>
-                                            <table class="feature-table">
-                                                <tr>
-                                                    <th>Field</th>
-                                                    <th>Value</th>
-                                                </tr>
-                                                {% if data.virustotal_data.url_report and data.virustotal_data.url_report.response_code == 1 %}
-                                                    <tr>
-                                                        <td>URL Positives</td>
-                                                        <td>{{ data.virustotal_data.url_report.positives | default('0') }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Total Scans</td>
-                                                        <td>{{ data.virustotal_data.url_report.total | default('0') }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Scan Date</td>
-                                                        <td>{{ data.virustotal_data.url_report.scan_date | default('N/A') }}</td>
-                                                    </tr>
-                                                {% endif %}
-                                                {% if data.virustotal_data.domain_report and data.virustotal_data.domain_report.response_code == 1 %}
-                                                    <tr>
-                                                        <td>Detected URLs</td>
-                                                        <td>{{ data.virustotal_data.domain_report.detected_urls | length if data.virustotal_data.domain_report.detected_urls else '0' }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Subdomains</td>
-                                                        <td>{{ data.virustotal_data.domain_report.subdomains | join(', ') if data.virustotal_data.domain_report.subdomains else 'None' }}</td>
-                                                    </tr>
-                                                {% endif %}
-                                                {% if data.virustotal_data.ip_report and data.virustotal_data.ip_report.response_code == 1 %}
-                                                    <tr>
-                                                        <td>IP Detected URLs</td>
-                                                        <td>{{ data.virustotal_data.ip_report.detected_urls | length if data.virustotal_data.ip_report.detected_urls else '0' }}</td>
-                                                    </tr>
-                                                {% endif %}
-                                                {% if data.virustotal_data.file_report and data.virustotal_data.file_report.response_code == 1 %}
-                                                    <tr>
-                                                        <td>File Positives</td>
-                                                        <td>{{ data.virustotal_data.file_report.positives | default('0') }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Total Scans</td>
-                                                        <td>{{ data.virustotal_data.file_report.total | default('0') }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Scan Date</td>
-                                                        <td>{{ data.virustotal_data.file_report.scan_date | default('N/A') }}</td>
-                                                    </tr>
-                                                {% endif %}
-                                            </table>
-                                        </details>
+                                </table>
+                            </details>
+
+                            <!-- Network and System Vulnerabilities -->
+                            <details>
+                                <summary>Network and System Vulnerabilities</summary>
+                                <table class="feature-table">
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>CVE ID</th>
+                                        <th>Details</th>
+                                        <th>Severity</th>
+                                        <th>CVSS Score</th>
+                                        <th>Mitigation</th>
+                                    </tr>
+                                    {% for vuln in result.vulnerabilities %}
+                                        <tr>
+                                            <td>{{ vuln.type | capitalize }}</td>
+                                            <td>{{ vuln.cve_id | default('N/A') }}</td>
+                                            <td>{{ vuln.details }}</td>
+                                            <td>{{ vuln.severity | capitalize }}</td>
+                                            <td>{{ vuln.cvss_score | default('N/A') }}</td>
+                                            <td>{{ vuln.mitigation | default('N/A') }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                    {% if not result.vulnerabilities %}
+                                        <tr>
+                                            <td colspan="6">No vulnerabilities detected</td>
+                                        </tr>
                                     {% endif %}
-                                    {% if data.otx_data and not data.otx_data.error %}
-                                        <details>
-                                            <summary>AlienVault OTX Details</summary>
-                                            <table class="feature-table">
-                                                <tr>
-                                                    <th>Field</th>
-                                                    <th>Value</th>
-                                                </tr>
-                                                <tr>
-                                                    <td>Pulse Count</td>
-                                                    <td>{{ data.otx_data.reputation.pulse_count | default('0') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Reputation Score</td>
-                                                    <td>{{ data.otx_data.reputation.reputation_score | default('0') }}</td>
-                                                </tr>
-                                            </table>
-                                            {% if data.otx_data.pulses %}
-                                                <details>
-                                                    <summary>OTX Pulses</summary>
-                                                    <table class="feature-table">
-                                                        <tr>
-                                                            <th>Name</th>
-                                                            <th>Description</th>
-                                                            <th>Created</th>
-                                                            <th>Tags</th>
-                                                        </tr>
-                                                        {% for pulse in data.otx_data.pulses %}
-                                                            <tr>
-                                                                <td>{{ pulse.name | default('N/A') }}</td>
-                                                                <td>{{ pulse.description | default('N/A') }}</td>
-                                                                <td>{{ pulse.created | default('N/A') }}</td>
-                                                                <td>{{ pulse.tags | join(', ') if pulse.tags else 'None' }}</td>
-                                                            </tr>
-                                                        {% endfor %}
-                                                    </table>
-                                                </details>
-                                            {% endif %}
-                                        </details>
+                                </table>
+                            </details>
+
+                            <!-- Web Vulnerabilities -->
+                            <details>
+                                <summary>Web Vulnerabilities</summary>
+                                <table class="feature-table">
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Details</th>
+                                        <th>Severity</th>
+                                        <th>Mitigation</th>
+                                    </tr>
+                                    {% for vuln in result.web_vulnerabilities %}
+                                        <tr>
+                                            <td>{{ vuln.type | capitalize }}</td>
+                                            <td>{{ vuln.details }}</td>
+                                            <td>{{ vuln.severity | capitalize }}</td>
+                                            <td>{{ vuln.mitigation | default('N/A') }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                    {% if not result.web_vulnerabilities %}
+                                        <tr>
+                                            <td colspan="4">No web vulnerabilities detected</td>
+                                        </tr>
                                     {% endif %}
-                                    {% if data.related_indicators %}
-                                        <details>
-                                            <summary>Related Indicators</summary>
-                                            <table class="feature-table">
-                                                <tr>
-                                                    <th>Type</th>
-                                                    <th>Values</th>
-                                                </tr>
-                                                <tr>
-                                                    <td>Domains</td>
-                                                    <td>{{ data.related_indicators.domains | join(', ') if data.related_indicators.domains else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>IPs</td>
-                                                    <td>{{ data.related_indicators.ips | join(', ') if data.related_indicators.ips else 'None' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Hashes</td>
-                                                    <td>{{ data.related_indicators.hashes | join(', ') if data.related_indicators.hashes else 'None' }}</td>
-                                                </tr>
-                                            </table>
-                                        </details>
-                                    {% endif %}
-                                {% elif key == 'vuln_assessment' and not data.error %}
-                                    <details>
-                                        <summary>Port and Service Details</summary>
-                                        <table class="feature-table">
-                                            <tr>
-                                                <th>Port</th>
-                                                <th>Name</th>
-                                                <th>Product</th>
-                                                <th>Version</th>
-                                                <th>Banner</th>
-                                            </tr>
-                                            {% for port, service in data.services.items() %}
-                                                {% if service.name %}
-                                                    <tr>
-                                                        <td>{{ port }}</td>
-                                                        <td>{{ service.name | default('N/A') }}</td>
-                                                        <td>{{ service.product | default('N/A') }}</td>
-                                                        <td>{{ service.version | default('N/A') }}</td>
-                                                        <td>{{ service.banner | default('N/A') }}</td>
-                                                    </tr>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </table>
-                                    </details>
-                                    <details>
-                                        <summary>HTTP Headers</summary>
-                                        <table class="feature-table">
-                                            <tr>
-                                                <th>Scheme</th>
-                                                <th>Header</th>
-                                                <th>Value</th>
-                                            </tr>
-                                            {% for scheme, headers in data.http_headers.items() %}
-                                                {% if headers and not headers.error %}
-                                                    {% for header, value in headers.items() %}
-                                                        <tr>
-                                                            <td>{{ scheme | upper }}</td>
-                                                            <td>{{ header }}</td>
-                                                            <td>{{ value }}</td>
-                                                        </tr>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <tr>
-                                                        <td>{{ scheme | upper }}</td>
-                                                        <td colspan="2">{{ headers.error | default('No headers available') }}</td>
-                                                    </tr>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </table>
-                                    </details>
-                                    <details>
-                                        <summary>SSL/TLS Information</summary>
-                                        <table class="feature-table">
-                                            <tr>
-                                                <th>Field</th>
-                                                <th>Value</th>
-                                            </tr>
-                                            {% if data.ssl_info and not data.ssl_info.error %}
-                                                <tr>
-                                                    <td>Issuer</td>
-                                                    <td>{{ data.ssl_info.issuer | default('N/A') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Subject</td>
-                                                    <td>{{ data.ssl_info.subject | default('N/A') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Valid From</td>
-                                                    <td>{{ data.ssl_info.valid_from | default('N/A') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Valid To</td>
-                                                    <td>{{ data.ssl_info.valid_to | default('N/A') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Serial</td>
-                                                    <td>{{ data.ssl_info.serial | default('N/A') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Signature Algorithm</td>
-                                                    <td>{{ data.ssl_info.signature_algorithm | default('N/A') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Cipher</td>
-                                                    <td>{{ data.ssl_info.cipher | default('N/A') }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>TLS Version</td>
-                                                    <td>{{ data.ssl_info.version | default('N/A') }}</td>
-                                                </tr>
-                                            {% else %}
-                                                <tr>
-                                                    <td colspan="2">{{ data.ssl_info.error | default('No SSL info available') }}</td>
-                                                </tr>
-                                            {% endif %}
-                                        </table>
-                                    </details>
-                                    <details>
-                                        <summary>Nmap Vulnerability Info</summary>
-                                        <table class="feature-table">
-                                            <tr>
-                                                <th>Port</th>
-                                                <th>Script</th>
-                                                <th>Service</th>
-                                                <th>Output</th>
-                                            </tr>
-                                            {% for vuln in data.nmap_vuln_info %}
-                                                <tr>
-                                                    <td>{{ vuln.port }}</td>
-                                                    <td>{{ vuln.script }}</td>
-                                                    <td>{{ vuln.service | default('N/A') }}</td>
-                                                    <td>{{ vuln.output | default('N/A') }}</td>
-                                                </tr>
-                                            {% endfor %}
-                                            {% if not data.nmap_vuln_info %}
-                                                <tr>
-                                                    <td colspan="4">No vulnerabilities detected</td>
-                                                </tr>
-                                            {% endif %}
-                                        </table>
-                                    </details>
-                                    <details>
-                                        <summary>OpenVAS Scan Results</summary>
-                                        <table class="feature-table">
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>Severity</th>
-                                                <th>CVE</th>
-                                                <th>Description</th>
-                                            </tr>
-                                            {% if data.openvas_scan.vulnerabilities %}
-                                                {% for vuln in data.openvas_scan.vulnerabilities %}
-                                                    <tr>
-                                                        <td>{{ vuln.name | default('N/A') }}</td>
-                                                        <td>{{ vuln.severity | default('N/A') }}</td>
-                                                        <td>{{ vuln.cve | default('None') }}</td>
-                                                        <td>{{ vuln.description | default('N/A') }}</td>
-                                                    </tr>
-                                                {% endfor %}
-                                            {% else %}
-                                                <tr>
-                                                    <td colspan="4">{{ data.openvas_scan.error | default('No vulnerabilities detected') }}</td>
-                                                </tr>
-                                            {% endif %}
-                                        </table>
-                                    </details>
-                                    <details>
-                                        <summary>All Vulnerabilities</summary>
-                                        <table class="feature-table">
-                                            <tr>
-                                                <th>Type</th>
-                                                <th>Details</th>
-                                                <th>Severity</th>
-                                            </tr>
-                                            {% for vuln in data.vulnerabilities %}
-                                                <tr>
-                                                    <td>{{ vuln.type | capitalize }}</td>
-                                                    <td>{{ vuln.details }}</td>
-                                                    <td>{{ vuln.severity | capitalize }}</td>
-                                                </tr>
-                                            {% endfor %}
-                                            {% if not data.vulnerabilities %}
-                                                <tr>
-                                                    <td colspan="3">No vulnerabilities detected</td>
-                                                </tr>
-                                            {% endif %}
-                                        </table>
-                                    </details>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
+                                </table>
+                            </details>
+                        </div>
+                    {% endif %}
                 {% else %}
                     <div style="text-align: center; padding: 40px 0;">
                         <i class="fas fa-shield-alt" style="font-size: 3rem; color: var(--secondary); margin-bottom: 20px;"></i>
-                        <h3 style="color: var(--light); font-family: 'Orbitron', sans-serif;">Awaiting Analysis</h3>
-                        <p style="color: var(--light); opacity: 0.8;">Enter an indicator, target, or IP to begin advanced threat analysis</p>
+                        <h3 style="color: var(--light); font-family: 'Orbitron', sans-serif;">Awaiting Assessment</h3>
+                        <p style="color: var(--light); opacity: 0.8;">Enter a target to begin vulnerability assessment</p>
                     </div>
                 {% endif %}
             </div>
@@ -1068,11 +833,12 @@
             });
         });
 
-        // Animate threat level text
-        document.querySelectorAll('.result-item.high h2 span, .result-item.medium h2 span, .result-item.low h2 span').forEach(span => {
+        // Animate vulnerability severity text
+        document.querySelectorAll('.result-item.critical h2 span, .result-item.high h2 span, .result-item.medium h2 span, .result-item.low h2 span').forEach(span => {
             KUTE.to(span, {
                 textShadow: `0 0 5px ${span.style.color}, 0 0 10px ${span.style.color}, 0 0 20px ${span.style.color}`
             }, { duration: 1000, yoyo: true, repeat: Infinity }).start();
         });
     </script>
 </body>
+</html>
