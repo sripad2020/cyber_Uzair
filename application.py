@@ -1,10 +1,11 @@
 import joblib
 from flask import Flask, request, render_template, jsonify, redirect, url_for
 import pandas as pd
-import requests,math
+import requests, math
 import whois
 import datetime
 import hashlib
+from hashlib import sha256, sha1, md5
 import shodan
 import dns.resolver
 import ssl
@@ -22,11 +23,11 @@ from gvm.connections import UnixSocketConnection
 # Advanced Threat Detection Routes
 import asyncio
 import uuid
-from vulnerability_assesment import perform_vulnerability_assessment,make_json_serializable
+from vulnerability_assesment import perform_vulnerability_assessment, make_json_serializable
 from gvm.protocols.gmp import Gmp
 from gvm.transforms import EtreeTransform
 import uuid
-import time,re
+import time, re
 import google.generativeai as genai
 from nltk import sent_tokenize, word_tokenize, FreqDist
 from nltk.corpus import stopwords
@@ -58,8 +59,6 @@ from urllib.parse import urlparse
 
 import os
 
-
-
 app = Flask(__name__)
 
 app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
@@ -70,7 +69,6 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['SCAN_STORAGE'], exist_ok=True)
 os.makedirs('static/shap_plots', exist_ok=True)
-
 
 VT_API_KEY = '99e4922915b2a1c753dfd66e541d41df6a3522cb906b6c0d6ae7c1df6f529ae5'
 SHODAN_API_KEY = 'HrwMvhaNOf8SvpLYMazaYl2Fv6E3iFQe'
@@ -88,9 +86,12 @@ os.makedirs(plot_dir, exist_ok=True)
 def info():
     return render_template('information.html')
 
+
 @app.route('/inputs')
 def indexed():
     return render_template("inputs.html")
+
+
 def convert_paragraph_to_points(paragraph, num_points=5):
     sentences = sent_tokenize(paragraph)
     words = word_tokenize(paragraph.lower())
@@ -107,8 +108,10 @@ def convert_paragraph_to_points(paragraph, num_points=5):
     key_points = sorted_sentences[:num_points]
     return key_points
 
+
 def clean_text(text):
     return re.sub(r'\*\*|\*', '', text)
+
 
 def clean_markdown(text: str) -> str:
     text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
@@ -123,6 +126,8 @@ def clean_markdown(text: str) -> str:
     text = re.sub(r'^\s*[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
     text = re.sub(r'\n\s*\n', '\n\n', text)
     return text.strip()
+
+
 @app.route('/process', methods=['POST'])
 def process():
     try:
@@ -214,7 +219,6 @@ def process():
         except Exception as e:
             explanation_points = [f"Could not generate explanation: {str(e)}"]
 
-
         return jsonify({
             'status': 'success',
             'prediction': prediction_label,
@@ -255,17 +259,43 @@ def phishing():
             results['domain_age'] = check_domain_age(domain)
     return render_template('phishing.html', results=results)
 
+
 # Malware Analysis Routes
 @app.route('/malware', methods=['GET', 'POST'])
-def malware():
+def malware_analysis():
     results = {}
+
     if request.method == 'POST':
-        if 'file-upload' in request.files and request.files['file-upload'].filename != '':
-            uploaded_file = request.files['file-upload']
-            results['file_scan'] = scan_uploaded_file(uploaded_file)
-        if 'file-hash' in request.form and request.form['file-hash']:
+        if 'file-hash' in request.form:
             file_hash = request.form['file-hash']
-            results['hash_lookup'] = check_file_hash(file_hash)
+            results['hash_lookup'] = check_file_hash(file_hash.strip())
+
+        # Handle file upload (placeholder for file scanning logic)
+        if 'file-upload' in request.files:
+            file = request.files['file-upload']
+            if file and file.filename:
+                # Calculate file hashes
+                sha256_hash = sha256()
+                sha1_hash = sha1()
+                md5_hash = md5()
+
+                # Read file in chunks to handle large files
+                for chunk in file.stream:
+                    sha256_hash.update(chunk)
+                    sha1_hash.update(chunk)
+                    md5_hash.update(chunk)
+
+                file.seek(0)  # Reset file pointer
+                results['file_scan'] = {
+                    'status': 'Initiated',
+                    'filename': file.filename,
+                    'sha256': sha256_hash.hexdigest(),
+                    'sha1': sha1_hash.hexdigest(),
+                    'md5': md5_hash.hexdigest(),
+                    # Placeholder: In a real implementation, upload to VirusTotal and get permalink
+                    'permalink': 'N/A'
+                }
+
     return render_template('malware.html', results=results)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -274,8 +304,10 @@ logger = logging.getLogger(__name__)
 # Cache for WHOIS results (TTL: 1 hour)
 whois_cache = TTLCache(maxsize=100, ttl=3600)
 
+
 class CustomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder for non-serializable objects."""
+
     def default(self, obj):
         logger.debug(f"Encoding object of type: {type(obj)}")
         if isinstance(obj, bytes):
@@ -290,6 +322,7 @@ class CustomJSONEncoder(json.JSONEncoder):
         logger.debug(f"Converting unhandled type {type(obj)} to string: {obj}")
         return str(obj)
 
+
 def make_json_serializable(obj: Any) -> Any:
     """Convert objects to JSON-serializable formats using CustomJSONEncoder."""
     logger.debug(f"Serializing object: {obj}")
@@ -297,20 +330,24 @@ def make_json_serializable(obj: Any) -> Any:
     logger.debug(f"Serialized result: {serialized}")
     return serialized
 
+
 def validate_domain(domain: str) -> bool:
     """Validate a domain name."""
     domain_pattern = r'^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$'
     return bool(re.match(domain_pattern, domain))
+
 
 def validate_host(host: str) -> bool:
     """Validate a host (IP or domain)."""
     ip_pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
     return bool(re.match(ip_pattern, host)) or validate_domain(host)
 
+
 def validate_url(url: str) -> bool:
     """Validate a URL."""
     url_pattern = r'^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/.*)?$'
     return bool(re.match(url_pattern, url))
+
 
 async def whois_lookup(domain: str) -> Dict[str, Any]:
     """Perform a WHOIS lookup for a domain."""
@@ -344,6 +381,7 @@ async def whois_lookup(domain: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"WHOIS lookup failed for {domain}: {str(e)}")
         return {'domain': domain, 'error': f'WHOIS lookup failed: {str(e)}'}
+
 
 async def latency_test(host: str) -> Dict[str, Any]:
     """Perform a network latency test using ICMP ping."""
@@ -380,6 +418,7 @@ async def latency_test(host: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Latency test failed for {host}: {str(e)}")
         return {'host': host, 'error': f'Latency test failed: {str(e)}'}
+
 
 async def security_headers_analysis(url: str) -> Dict[str, Any]:
     """Analyze HTTP security headers of a website."""
@@ -418,6 +457,7 @@ async def security_headers_analysis(url: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Security headers analysis failed for {url}: {str(e)}")
         return {'url': url, 'error': f'Analysis failed: {str(e)}'}
+
 
 @app.route('/network', methods=['GET', 'POST'])
 async def network():
@@ -615,7 +655,8 @@ def scan_ports(ip):
         return {
             'matches': len(host_info.get('data', [])),
             'ports': list(set([entry['port'] for entry in host_info.get('data', [])])),
-            'services': list(set([entry.get('product', '') for entry in host_info.get('data', []) if entry.get('product')])),
+            'services': list(
+                set([entry.get('product', '') for entry in host_info.get('data', []) if entry.get('product')])),
             'os': [host_info.get('os', '')] if host_info.get('os') else [],
             'vulnerabilities': host_info.get('vulns', []),
             'banners': [entry.get('data', '')[:100] for entry in host_info.get('data', []) if entry.get('data')],
@@ -628,6 +669,7 @@ def scan_ports(ip):
         }
     except shodan.APIError as e:
         return {'error': f"Shodan API error: {str(e)}", 'error_type': 'ShodanAPIError'}
+
 
 def get_geolocation(ip: str) -> dict:
     """Fetch geolocation data for an IP address using ip-api.com."""
@@ -776,6 +818,8 @@ def check_phishing_url(url):
             "error_message": str(e)
         })
     return result
+
+
 def analyze_email_content(content):
     phishing_keywords = ['urgent', 'password', 'verify', 'account', 'suspended', 'immediately']
     score = 0
@@ -791,126 +835,128 @@ def analyze_email_content(content):
         'is_suspicious': score > 2
     }
 
+
 def check_domain_age(domain):
-        """
-        Enhanced domain information checker that returns:
-        - WHOIS information (creation date, registrar, expiration)
-        - DNS records (A, MX, TXT, NS)
-        - SSL certificate details
-        - Domain reputation indicators
-        - Basic connectivity check
-        """
-        result = {
-            'domain': domain,
-            'whois': {},
-            'dns': {},
-            'ssl': {},
-            'reputation': {},
-            'connectivity': {},
-            'error': None
+    """
+    Enhanced domain information checker that returns:
+    - WHOIS information (creation date, registrar, expiration)
+    - DNS records (A, MX, TXT, NS)
+    - SSL certificate details
+    - Domain reputation indicators
+    - Basic connectivity check
+    """
+    result = {
+        'domain': domain,
+        'whois': {},
+        'dns': {},
+        'ssl': {},
+        'reputation': {},
+        'connectivity': {},
+        'error': None
+    }
+
+    try:
+        # Clean domain (remove http/https/www)
+        domain = urlparse(domain).netloc if urlparse(domain).netloc else domain
+        domain = domain.replace('www.', '')
+
+        # WHOIS Information
+        try:
+            domain_info = whois.whois(domain)
+            creation_date = domain_info.creation_date
+            expiration_date = domain_info.expiration_date
+
+            # Handle cases where dates are lists
+            if isinstance(creation_date, list):
+                creation_date = creation_date[0]
+            if isinstance(expiration_date, list):
+                expiration_date = expiration_date[0]
+
+            age_days = (datetime.datetime.now() - creation_date).days if creation_date else None
+
+            result['whois'] = {
+                'creation_date': str(creation_date),
+                'expiration_date': str(expiration_date),
+                'age_days': age_days,
+                'registrar': domain_info.registrar,
+                'name_servers': domain_info.name_servers,
+                'status': domain_info.status,
+                'emails': domain_info.emails,
+                'is_new': age_days is not None and age_days < 30,
+                'is_expired': expiration_date and expiration_date < datetime.datetime.now()
+            }
+        except Exception as e:
+            result['whois']['error'] = str(e)
+
+        # DNS Records
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 5
+        resolver.lifetime = 5
+
+        dns_types = ['A', 'MX', 'TXT', 'NS', 'CNAME']
+        for record_type in dns_types:
+            try:
+                answers = resolver.resolve(domain, record_type)
+                if record_type == 'MX':
+                    result['dns'][record_type] = [str(r.exchange) for r in answers]
+                else:
+                    result['dns'][record_type] = [str(r) for r in answers]
+            except:
+                result['dns'][record_type] = []
+
+        # SSL Certificate Information
+        try:
+            context = ssl.create_default_context()
+            with socket.create_connection((domain, 443), timeout=5) as sock:
+                with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                    cert = ssock.getpeercert()
+
+                    # Parse certificate dates
+                    not_before = datetime.datetime.strptime(cert['notBefore'], '%b %d %H:%M:%S %Y %Z')
+                    not_after = datetime.datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
+                    cert_age = (datetime.datetime.now() - not_before).days
+
+                    result['ssl'] = {
+                        'issued_to': dict(x[0] for x in cert['subject']),
+                        'issuer': dict(x[0] for x in cert['issuer']),
+                        'valid_from': str(not_before),
+                        'valid_to': str(not_after),
+                        'cert_age_days': cert_age,
+                        'is_valid': datetime.datetime.now() < not_after,
+                        'is_new': cert_age < 30,
+                        'serial_number': cert.get('serialNumber'),
+                        'version': cert.get('version')
+                    }
+        except Exception as e:
+            result['ssl']['error'] = str(e)
+
+        # Basic Connectivity Check
+        try:
+            response = requests.get(f"http://{domain}", timeout=5, allow_redirects=True)
+            result['connectivity'] = {
+                'http_status': response.status_code,
+                'final_url': response.url,
+                'response_time_ms': response.elapsed.total_seconds() * 1000,
+                'headers': dict(response.headers),
+                'content_length': len(response.content)
+            }
+        except Exception as e:
+            result['connectivity']['error'] = str(e)
+
+        # Reputation Indicators
+        result['reputation'] = {
+            'has_mx_records': len(result['dns'].get('MX', [])) > 0,
+            'has_spf_record': any('spf' in txt.lower() for txt in result['dns'].get('TXT', [])),
+            'has_dmarc_record': any('dmarc' in txt.lower() for txt in result['dns'].get('TXT', [])),
+            'is_https_working': 'error' not in result['ssl'],
+            'is_redirecting': result['connectivity'].get('final_url', '').lower() != f"http://{domain.lower()}",
+            'common_nameserver': any(ns.endswith(('.com', '.net')) for ns in result['dns'].get('NS', []))
         }
 
-        try:
-            # Clean domain (remove http/https/www)
-            domain = urlparse(domain).netloc if urlparse(domain).netloc else domain
-            domain = domain.replace('www.', '')
+    except Exception as e:
+        result['error'] = str(e)
+    return result
 
-            # WHOIS Information
-            try:
-                domain_info = whois.whois(domain)
-                creation_date = domain_info.creation_date
-                expiration_date = domain_info.expiration_date
-
-                # Handle cases where dates are lists
-                if isinstance(creation_date, list):
-                    creation_date = creation_date[0]
-                if isinstance(expiration_date, list):
-                    expiration_date = expiration_date[0]
-
-                age_days = (datetime.datetime.now() - creation_date).days if creation_date else None
-
-                result['whois'] = {
-                    'creation_date': str(creation_date),
-                    'expiration_date': str(expiration_date),
-                    'age_days': age_days,
-                    'registrar': domain_info.registrar,
-                    'name_servers': domain_info.name_servers,
-                    'status': domain_info.status,
-                    'emails': domain_info.emails,
-                    'is_new': age_days is not None and age_days < 30,
-                    'is_expired': expiration_date and expiration_date < datetime.datetime.now()
-                }
-            except Exception as e:
-                result['whois']['error'] = str(e)
-
-            # DNS Records
-            resolver = dns.resolver.Resolver()
-            resolver.timeout = 5
-            resolver.lifetime = 5
-
-            dns_types = ['A', 'MX', 'TXT', 'NS', 'CNAME']
-            for record_type in dns_types:
-                try:
-                    answers = resolver.resolve(domain, record_type)
-                    if record_type == 'MX':
-                        result['dns'][record_type] = [str(r.exchange) for r in answers]
-                    else:
-                        result['dns'][record_type] = [str(r) for r in answers]
-                except:
-                    result['dns'][record_type] = []
-
-            # SSL Certificate Information
-            try:
-                context = ssl.create_default_context()
-                with socket.create_connection((domain, 443), timeout=5) as sock:
-                    with context.wrap_socket(sock, server_hostname=domain) as ssock:
-                        cert = ssock.getpeercert()
-
-                        # Parse certificate dates
-                        not_before = datetime.datetime.strptime(cert['notBefore'], '%b %d %H:%M:%S %Y %Z')
-                        not_after = datetime.datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
-                        cert_age = (datetime.datetime.now() - not_before).days
-
-                        result['ssl'] = {
-                            'issued_to': dict(x[0] for x in cert['subject']),
-                            'issuer': dict(x[0] for x in cert['issuer']),
-                            'valid_from': str(not_before),
-                            'valid_to': str(not_after),
-                            'cert_age_days': cert_age,
-                            'is_valid': datetime.datetime.now() < not_after,
-                            'is_new': cert_age < 30,
-                            'serial_number': cert.get('serialNumber'),
-                            'version': cert.get('version')
-                        }
-            except Exception as e:
-                result['ssl']['error'] = str(e)
-
-            # Basic Connectivity Check
-            try:
-                response = requests.get(f"http://{domain}", timeout=5, allow_redirects=True)
-                result['connectivity'] = {
-                    'http_status': response.status_code,
-                    'final_url': response.url,
-                    'response_time_ms': response.elapsed.total_seconds() * 1000,
-                    'headers': dict(response.headers),
-                    'content_length': len(response.content)
-                }
-            except Exception as e:
-                result['connectivity']['error'] = str(e)
-
-            # Reputation Indicators
-            result['reputation'] = {
-                'has_mx_records': len(result['dns'].get('MX', [])) > 0,
-                'has_spf_record': any('spf' in txt.lower() for txt in result['dns'].get('TXT', [])),
-                'has_dmarc_record': any('dmarc' in txt.lower() for txt in result['dns'].get('TXT', [])),
-                'is_https_working': 'error' not in result['ssl'],
-                'is_redirecting': result['connectivity'].get('final_url', '').lower() != f"http://{domain.lower()}",
-                'common_nameserver': any(ns.endswith(('.com', '.net')) for ns in result['dns'].get('NS', []))
-            }
-
-        except Exception as e:
-            result['error'] = str(e)
-        return result
 
 # Malware Analysis Functions
 import tempfile
@@ -922,6 +968,7 @@ from werkzeug.utils import secure_filename
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
 
 def scan_uploaded_file(file):
     try:
@@ -965,6 +1012,8 @@ def scan_uploaded_file(file):
 
             # Check if report exists
             vt_report = check_file_hash(sha256_hash)
+
+
             if vt_report.get('response_code') == 1:
                 result.update({
                     'status': 'Completed',
@@ -1060,6 +1109,8 @@ def scan_uploaded_file(file):
                 logger.info(f"Cleaned up temporary file: {filepath}")
         except Exception as e:
             logger.warning(f"Failed to delete temporary file {filepath}: {str(e)}")
+
+
 def check_file_hash(file_hash):
     try:
         params = {'apikey': VT_API_KEY, 'resource': file_hash}
@@ -1067,9 +1118,60 @@ def check_file_hash(file_hash):
             'https://www.virustotal.com/vtapi/v2/file/report',
             params=params
         )
-        return response.json()
+        response.raise_for_status()  # Raise an exception for bad status codes
+        data = response.json()
+
+        # Process the response to match the expected template format
+        if data.get('response_code') == 0:
+            return {
+                'status': 'Error',
+                'error': 'Resource not found in VirusTotal database',
+                'error_type': 'NotFound',
+                'status_code': response.status_code
+            }
+
+        # Format the response to include all necessary fields
+        result = {
+            'status': 'Completed',
+            'resource': file_hash,
+            'positives': data.get('positives', 0),
+            'total': data.get('total', 0),
+            'scan_date': data.get('scan_date', 'N/A'),
+            'sha256': data.get('sha256', 'N/A'),
+            'sha1': data.get('sha1', 'N/A'),
+            'md5': data.get('md5', 'N/A'),
+            'permalink': data.get('permalink', 'N/A'),
+            'scans': data.get('scans', {}),
+            'file_size_bytes': data.get('size', 'N/A'),
+            'file_type': data.get('type', 'N/A'),
+            'first_submission': data.get('first_seen', 'N/A'),
+            'last_submission': data.get('last_seen', 'N/A'),
+            'times_submitted': data.get('times_submitted', 'N/A')
+        }
+        return result
+
+    except requests.exceptions.HTTPError as http_err:
+        return {
+            'status': 'Error',
+            'error': str(http_err),
+            'error_type': 'HTTPError',
+            'status_code': response.status_code if response else 'N/A'
+        }
+    except requests.exceptions.RequestException as req_err:
+        return {
+            'status': 'Error',
+            'error': str(req_err),
+            'error_type': 'RequestError',
+            'status_code': 'N/A'
+        }
     except Exception as e:
-        return {'error': str(e)}
+        return {
+            'status': 'Error',
+            'error': str(e),
+            'error_type': 'GeneralError',
+            'status_code': 'N/A'
+        }
+
 
 # Network Threat Detection Functions
 def check_ip_reputation(ip_address):
@@ -1084,6 +1186,7 @@ def check_ip_reputation(ip_address):
         return response.json()
     except Exception as e:
         return {'error': str(e)}
+
 
 def scan_ports(ip_address):
     try:
@@ -1121,6 +1224,7 @@ def scan_ports(ip_address):
         return {'error': f"Shodan API error: {str(e)}"}
     except Exception as e:
         return {'error': str(e)}
+
 
 def check_dns_history(domain):
     try:
@@ -1207,7 +1311,6 @@ def check_ssl_certificate(url):
         return {'error': str(e)}
 
 
-
 # Credential Protection Functions
 def check_email_breach(email):
     try:
@@ -1230,6 +1333,7 @@ def check_email_breach(email):
     except Exception as e:
         return {'error': str(e)}
 
+
 def check_password_breach(password):
     try:
         sha1_password = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
@@ -1246,6 +1350,7 @@ def check_password_breach(password):
     except Exception as e:
         return {'error': str(e)}
 
+
 # Advanced Threat Detection Functions
 def generate_threat_report(indicator):
     try:
@@ -1258,12 +1363,15 @@ def generate_threat_report(indicator):
                     shodan_data = {
                         'shodan_matches': shodan_results['total'],
                         'ports': list(set([result['port'] for result in shodan_results['matches']])),
-                        'last_seen': max(shodan_results['matches'], key=lambda x: x.get('timestamp', ''))['timestamp'] if shodan_results['matches'] else None,
+                        'last_seen': max(shodan_results['matches'], key=lambda x: x.get('timestamp', ''))[
+                            'timestamp'] if shodan_results['matches'] else None,
                         'organizations': list(set([result.get('org', '') for result in shodan_results['matches']])),
-                        'geolocations': list(set([result.get('location', {}).get('country_name', '') for result in shodan_results['matches']]))
+                        'geolocations': list(set([result.get('location', {}).get('country_name', '') for result in
+                                                  shodan_results['matches']]))
                     }
                 else:
-                    shodan_data = {'shodan_matches': 0, 'ports': [], 'last_seen': None, 'organizations': [], 'geolocations': []}
+                    shodan_data = {'shodan_matches': 0, 'ports': [], 'last_seen': None, 'organizations': [],
+                                   'geolocations': []}
                 protocol_data = {}
                 for protocol in ['http', 'ssh', 'rdp']:
                     protocol_results = shodan_api.search(f"hostname:{indicator} {protocol}")
@@ -1274,7 +1382,8 @@ def generate_threat_report(indicator):
                 shodan_data['protocol_specific'] = protocol_data
             else:
                 shodan_data = scan_ports(indicator)
-                historical_data = shodan_api.host_history(indicator) if hasattr(shodan_api, 'host_history') else {'history': []}
+                historical_data = shodan_api.host_history(indicator) if hasattr(shodan_api, 'host_history') else {
+                    'history': []}
                 shodan_data['historical_scans'] = {
                     'scan_count': len(historical_data.get('history', [])),
                     'last_scan': max([h['timestamp'] for h in historical_data.get('history', [])], default=None)
@@ -1305,6 +1414,7 @@ def generate_threat_report(indicator):
     except Exception as e:
         return {'error': str(e)}
 
+
 def search_cve(software):
     try:
         response = requests.get(f'https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch={software}')
@@ -1317,7 +1427,8 @@ def search_cve(software):
                     'id': cve.get('id'),
                     'description': cve.get('descriptions', [{}])[0].get('value'),
                     'published': cve.get('published'),
-                    'severity': cve.get('metrics', {}).get('cvssMetricV31', [{}])[0].get('cvssData', {}).get('baseSeverity')
+                    'severity': cve.get('metrics', {}).get('cvssMetricV31', [{}])[0].get('cvssData', {}).get(
+                        'baseSeverity')
                 })
             return {
                 'software': software,
@@ -1327,6 +1438,7 @@ def search_cve(software):
         return {'error': 'API request failed'}
     except Exception as e:
         return {'error': str(e)}
+
 
 def get_ip_geolocation(ip_address):
     try:
@@ -1348,6 +1460,7 @@ def get_ip_geolocation(ip_address):
         return {'error': 'API request failed'}
     except Exception as e:
         return {'error': str(e)}
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
