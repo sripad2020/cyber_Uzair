@@ -86,7 +86,6 @@ os.makedirs(plot_dir, exist_ok=True)
 def info():
     return render_template('information.html')
 
-
 @app.route('/inputs')
 def indexed():
     return render_template("inputs.html")
@@ -671,29 +670,26 @@ def scan_ports(ip):
         return {'error': f"Shodan API error: {str(e)}", 'error_type': 'ShodanAPIError'}
 
 
-def get_geolocation(ip: str) -> dict:
-    """Fetch geolocation data for an IP address using ip-api.com."""
+async def get_ip_geolocation(ip_address):
     try:
-        response = requests.get(f'http://ip-api.com/json/{ip}', timeout=5)
-        response.raise_for_status()
-        data = response.json()
-        if data.get('status') == 'success':
+        response = requests.get(f'http://ip-api.com/json/{ip_address}')
+        if response.status_code == 200:
+            data = response.json()
             return {
-                'ip': ip,
-                'city': data.get('city', 'N/A'),
-                'country': data.get('country', 'N/A'),
-                'region': data.get('regionName', 'N/A'),
-                'latitude': data.get('lat', 'N/A'),
-                'longitude': data.get('lon', 'N/A'),
-                'isp': data.get('isp', 'N/A'),
-                'org': data.get('org', 'N/A'),
-                'error': None
+                'ip': ip_address,
+                'location': {
+                    'city': data.get('city'),
+                    'country': data.get('country'),
+                    'region': data.get('regionName'),
+                    'latitude': data.get('lat'),
+                    'longitude': data.get('lon')
+                },
+                'isp': data.get('isp'),
+                'org': data.get('org')
             }
-        else:
-            return {'ip': ip, 'error': f"Geolocation lookup failed: {data.get('message', 'Unknown error')}"}
-    except requests.RequestException as e:
-        return {'ip': ip, 'error': f"Geolocation request failed: {str(e)}"}
-
+        return {'error': 'API request failed'}
+    except Exception as e:
+        return {'error': str(e)}
 
 @app.route('/advanced', methods=['GET', 'POST'])
 async def advanced():
@@ -704,6 +700,10 @@ async def advanced():
             try:
                 scan_id = str(uuid.uuid4())
                 result = await perform_vulnerability_assessment(target, scan_id)
+                # Add geolocation information if target_ip is available
+                if result.get('target_ip'):
+                    geo_info = await get_ip_geolocation(result['target_ip'])
+                    result['geolocation'] = geo_info
             except Exception as e:
                 result = {
                     'error': f'Vulnerability assessment failed: {str(e)}',
@@ -717,7 +717,6 @@ async def advanced():
 
     print("Result being passed to template:", result)
     return render_template('advanced.html', result=result)
-
 
 def check_phishing_url(url):
     # Google Safe Browsing API
