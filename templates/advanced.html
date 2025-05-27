@@ -505,6 +505,53 @@
                                 </tr>
                             </table>
                             <details>
+                                <summary>Geolocation Information</summary>
+                                <table class="feature-table">
+                                    <tr>
+                                        <th>Field</th>
+                                        <th>Value</th>
+                                    </tr>
+                                    {% if result.geolocation and not result.geolocation.error %}
+                                        <tr>
+                                            <td>IP Address</td>
+                                            <td>{{ result.geolocation.ip | default('N/A') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>City</td>
+                                            <td>{{ result.geolocation.location.city | default('N/A') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Region</td>
+                                            <td>{{ result.geolocation.location.region | default('N/A') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Country</td>
+                                            <td>{{ result.geolocation.location.country | default('N/A') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Latitude</td>
+                                            <td>{{ result.geolocation.location.latitude | default('N/A') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Longitude</td>
+                                            <td>{{ result.geolocation.location.longitude | default('N/A') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>ISP</td>
+                                            <td>{{ result.geolocation.isp | default('N/A') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Organization</td>
+                                            <td>{{ result.geolocation.org | default('N/A') }}</td>
+                                        </tr>
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="2">{{ result.geolocation.error | default('No geolocation data available') }}</td>
+                                        </tr>
+                                    {% endif %}
+                                </table>
+                            </details>
+                            <details>
                                 <summary>Port and Service Details</summary>
                                 <table class="feature-table">
                                     <tr>
