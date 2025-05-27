@@ -702,7 +702,7 @@ async def advanced():
                 result = await perform_vulnerability_assessment(target, scan_id)
                 # Add geolocation information if target_ip is available
                 if result.get('target_ip'):
-                    geo_info = await get_ip_geolocation(result['target_ip'])
+                    geo_info = get_ip_geolocation(result['target_ip'])
                     result['geolocation'] = geo_info
             except Exception as e:
                 result = {
