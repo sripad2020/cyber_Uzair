@@ -59,7 +59,7 @@ for i in corr.index:
     print(i," : ",corr[i])
 
 y=data['Label']
-x=data[x]
+x=data[['fwd_pkt_len_min','bwd_pkt_len_min','flow_iat_min','pkt_len_min']]
 
 print(x.columns.values)
 print(data['Label'].value_counts())
@@ -122,7 +122,7 @@ print("The logistic regression  ",lr.score(x_test,y_test))
 print('-------------------------------------------------------------')
 print(confusion_matrix(y_test,(lr.predict(x_test))))
 print('-------------------------------------------------------')
-=======
+
 import joblib
 import pandas as pd
 from imblearn.over_sampling import SMOTE
@@ -183,7 +183,7 @@ for i in corr.index:
     print(i," : ",corr[i])
 
 y=data['Label']
-x=data[x]
+x=data[['fwd_pkt_len_min','bwd_pkt_len_min','flow_iat_min','pkt_len_min']]
 
 print(x.columns.values)
 print(data['Label'].value_counts())
