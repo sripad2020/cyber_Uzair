@@ -29,6 +29,42 @@
             color: var(--light);
             background-color: var(--dark);
             line-height: 1.6;
+            overflow-x:！
+
+System: I notice you want to add horizontal and vertical scrollbars to the results section of your HTML. I'll help modify the CSS to achieve this while preserving the existing design. The key changes will be applied to the `.results-container` and `#results` elements to enable scrolling when content overflows. Below is the updated HTML with the modified styles, focusing on adding `overflow: auto` and a maximum height to the `#results` element to ensure both horizontal and vertical scrollbars appear as needed.
+
+<xaiArtifact artifact_id="a8abae64-d06c-4767-b68b-a38cfd0849b1" artifact_version_id="461e8973-e3c8-4c8e-8352-75ac8dc3df8a" title="index.html" contentType="text/html">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberMind | Network Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --primary: #00ff9d;
+            --secondary: #00b8ff;
+            --accent: #ff2d75;
+            --purple: #b400ff;
+            --dark: #0a0e17;
+            --darker: #05080f;
+            --light: #ccd6f6;
+            --lighter: #e6f1ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--light);
+            background-color: var(--dark);
+            line-height: 1.6;
             overflow-x: hidden;
             min-height: 100vh;
         }
@@ -129,6 +165,17 @@
         .form-container:hover, .results-container:hover {
             box-shadow: 0 15px 40px rgba(0, 255, 157, 0.2);
             border-color: rgba(0, 255, 157, 0.4);
+        }
+
+        .results-container {
+            max-height: 80vh; /* Set max height for vertical scrollbar */
+            overflow: hidden; /* Hide overflow for container to maintain border styling */
+        }
+
+        #results {
+            max-height: 70vh; /* Ensure content inside results has a max height */
+            overflow: auto; /* Enable both horizontal and vertical scrollbars */
+            padding-right: 10px; /* Prevent content from touching scrollbar */
         }
 
         h1 {
@@ -492,6 +539,14 @@
                 font-size: 1rem;
                 padding: 15px;
             }
+
+            .results-container {
+                max-height: 60vh; /* Adjust max height for smaller screens */
+            }
+
+            #results {
+                max-height: 50vh; /* Adjust for smaller screens */
+            }
         }
     </style>
 </head>
@@ -515,7 +570,6 @@
         <div class="nav-icon" data-tooltip="Network Threats" onclick="window.location.href='/network'">
             <i class="fas fa-network-wired"></i>
         </div>
-        
         <div class="nav-icon" data-tooltip="Advanced Threats" onclick="window.location.href='/advanced'">
             <i class="fas fa-shield-alt"></i>
         </div>
